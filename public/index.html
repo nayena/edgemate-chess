@@ -87,7 +87,7 @@
   /* ---------- editor window ---------- */
   .editor-window{
     margin-inline:auto;
-    width:min(1180px, calc(100% - 32px));
+    width:min(1360px, calc(100% - 32px));
     background:var(--bg-panel);
     border:1px solid var(--border);
     border-radius:10px;
@@ -375,6 +375,27 @@
   .conn-dot{width:7px; height:7px; border-radius:50%; background:var(--text-faint); display:inline-block; transition:background .2s;}
   .conn-dot.live{background:var(--green); box-shadow:0 0 6px var(--green);}
 
+  .diff-group{
+    display:inline-flex;
+    border:1px solid var(--border);
+    border-radius:5px;
+    overflow:hidden;
+  }
+  .diff-btn{
+    font-family:var(--font-body);
+    font-size:11.5px;
+    background:var(--bg-panel);
+    border:none;
+    border-right:1px solid var(--border);
+    color:var(--text-muted);
+    padding:4px 10px;
+    cursor:pointer;
+    transition:color .15s, background .15s;
+  }
+  .diff-btn:last-child{border-right:none;}
+  .diff-btn:hover{color:var(--text-primary);}
+  .diff-btn[aria-pressed="true"]{color:var(--bg-inset); background:var(--cyan); font-weight:600;}
+
   /* ---------- editor body ---------- */
   .editor-body{
     display:grid;
@@ -405,10 +426,10 @@
 
   .board-frame{
     display:grid;
-    grid-template-columns:26px 1fr;
-    grid-template-rows:1fr 22px;
-    gap:2px;
-    max-width:520px;
+    grid-template-columns:30px 1fr;
+    grid-template-rows:1fr 26px;
+    gap:3px;
+    max-width:min(720px, 100%);
     margin-inline:auto;
     position:relative;
   }
@@ -419,7 +440,7 @@
   }
   .gutter span{
     display:flex; align-items:center; justify-content:center;
-    font-size:11px;
+    font-size:12.5px;
     color:var(--text-faint);
   }
   .file-ruler{
@@ -429,7 +450,7 @@
   }
   .file-ruler span{
     display:flex; align-items:center; justify-content:center;
-    font-size:11px;
+    font-size:12.5px;
     color:var(--text-faint);
   }
   .board{
@@ -492,7 +513,7 @@
   }
 
   .piece{
-    font-size:clamp(22px, 5.4vw, 38px);
+    font-size:clamp(26px, 6.6vw, 52px);
     line-height:1;
     user-select:none;
     transition:transform .12s ease;
@@ -691,7 +712,7 @@
 
 <p class="page-eyebrow">
   <span><strong>EdgeMate</strong></span>
-  <span>Dracula theme · rendered as a code editor · hot-seat runs on rules.js</span>
+  <span>rendered as a code editor · hot-seat runs on rules.js</span>
 </p>
 
 <main class="editor-window" id="editorWindow">
@@ -807,7 +828,8 @@
     <span class="seg" id="modeLabel">Hot-seat</span>
     <span class="right">
       <span class="seg" id="coordLabel">Sq —</span>
-      <span class="seg">Dracula theme</span>
+      <span class="seg">⎇ main</span>
+      <span class="seg">UTF-8</span>
     </span>
   </div>
 </main>
@@ -862,11 +884,14 @@ import * as Rules from './rules.js';
         players: state.players,
         soundOn: state.soundOn,
         glowOn: state.glowOn,
-        grainOn: state.grainOn
+        grainOn: state.grainOn,
+        difficulty: state.difficulty
       }));
     } catch(e){ /* private mode or blocked storage — ignore */ }
   }
   var prefs = loadPrefs();
+
+  var DIFFICULTIES = ['easy', 'medium', 'hard'];
 
   var state = {
     game: Rules.createInitialState(),
@@ -887,7 +912,8 @@ import * as Rules from './rules.js';
     },
     soundOn: prefs ? prefs.soundOn !== false : true,
     glowOn: prefs ? prefs.glowOn !== false : true,
-    grainOn: prefs ? prefs.grainOn !== false : true
+    grainOn: prefs ? prefs.grainOn !== false : true,
+    difficulty: (prefs && DIFFICULTIES.indexOf(prefs.difficulty) !== -1) ? prefs.difficulty : 'medium'
   };
 
   document.body.classList.toggle('no-glow', !state.glowOn);
@@ -1158,11 +1184,12 @@ import * as Rules from './rules.js';
   var flashTimer = null;
   function flashComment(text){
     var strip = document.getElementById('modeStrip');
-    var original = strip.dataset.original || strip.innerHTML;
-    strip.dataset.original = original;
     strip.innerHTML = '<span class="comment" style="color:var(--red)">'+text+'</span>';
     clearTimeout(flashTimer);
-    flashTimer = setTimeout(function(){ strip.innerHTML = original; }, 1800);
+    flashTimer = setTimeout(function(){
+      strip.innerHTML = modeStripContent[state.mode];
+      wireModeStripControls();
+    }, 1800);
   }
 
   /* ---- promotion palette ---- */
@@ -1195,9 +1222,42 @@ import * as Rules from './rules.js';
   /* ---- tabs / mode switching ---- */
   var modeStripContent = {
     hotseat: '<span class="comment">// two players, one screen — take turns tapping your pieces</span>',
-    computer: '<span class="comment">// you are White · the Phase 3 engine plays Black (not wired yet)</span>',
+    computer: '<span class="comment">// you are White ·</span>' +
+      '<span class="diff-group" role="group" aria-label="Computer difficulty">' +
+        DIFFICULTIES.map(function(d){ return '<button type="button" class="diff-btn" data-diff="'+d+'">'+d+'</button>'; }).join('') +
+      '</span>' +
+      '<span class="comment">· engine arrives in Phase 3 — change this anytime, including mid-game</span>',
     online: '<span class="comment">$ join --room</span><input type="text" placeholder="ABCD" maxlength="4" id="roomInput" aria-label="Room code"><button class="small" id="joinBtn" type="button">connect</button><span class="conn-dot" id="connDot" aria-hidden="true"></span><span class="comment" id="connText">offline</span>'
   };
+
+  function syncDifficultyButtons(){
+    Array.prototype.forEach.call(document.querySelectorAll('.diff-btn'), function(btn){
+      btn.setAttribute('aria-pressed', btn.dataset.diff === state.difficulty ? 'true' : 'false');
+    });
+  }
+
+  // Re-attaches the listeners the current mode strip's controls need. Called both after a
+  // tab switch and after flashComment() replaces the strip's markup and restores it.
+  function wireModeStripControls(){
+    if(state.mode === 'online'){
+      var joinBtn = document.getElementById('joinBtn');
+      if(joinBtn) joinBtn.addEventListener('click', function(){
+        var val = document.getElementById('roomInput').value.trim();
+        document.getElementById('connDot').classList.add('live');
+        document.getElementById('connText').textContent = val ? ('room ' + val.toUpperCase() + ' (preview)') : 'connected (preview)';
+      });
+    }
+    if(state.mode === 'computer'){
+      syncDifficultyButtons();
+      Array.prototype.forEach.call(document.querySelectorAll('.diff-btn'), function(btn){
+        btn.addEventListener('click', function(){
+          state.difficulty = btn.dataset.diff;
+          syncDifficultyButtons();
+          savePrefs();
+        });
+      });
+    }
+  }
 
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(tab){
     tab.addEventListener('click', function(){
@@ -1208,15 +1268,7 @@ import * as Rules from './rules.js';
       document.getElementById('modeStrip').innerHTML = modeStripContent[mode];
       document.getElementById('winTitleMode').textContent = mode + '.chess';
       document.getElementById('modeLabel').textContent = mode==='hotseat' ? 'Hot-seat' : mode==='computer' ? 'Vs Computer' : 'Online';
-
-      if(mode === 'online'){
-        var joinBtn = document.getElementById('joinBtn');
-        joinBtn.addEventListener('click', function(){
-          var val = document.getElementById('roomInput').value.trim();
-          document.getElementById('connDot').classList.add('live');
-          document.getElementById('connText').textContent = val ? ('room ' + val.toUpperCase() + ' (preview)') : 'connected (preview)';
-        });
-      }
+      wireModeStripControls();
       render();
     });
   });
