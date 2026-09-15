@@ -52,17 +52,24 @@ the concrete, checkable condition that makes the task "finished," not just "star
 
 ## Phase 2 — Hot-seat mode, live on the internet
 
-- [ ] Build the board UI (squares, pieces, Dracula-theme styling, selected-square and
+- [x] Build the board UI (squares, pieces, Dracula-theme styling, selected-square and
       legal-move highlighting)
       **Depends on:** Phase 1 passing perft
       **Files:** `public/index.html`, `public/style.css`, `public/board.js`
       **DoD:** board renders the starting position in the Dracula look described in
       `ProductSpec.md`.
-- [ ] Wire the board UI to `rules.js` for two-player, same-screen play
+      **Note:** landed earlier as part of the design-preview scaffold; all HTML/CSS/JS lives in
+      `public/index.html` (no separate `style.css`/`board.js`).
+- [x] Wire the board UI to `rules.js` for two-player, same-screen play
       **Depends on:** board UI
       **Files:** `public/board.js`, `rules.js`
       **DoD:** two people can play a full legal game on one screen, including castling, en
       passant, promotion, check, checkmate, and stalemate; illegal moves cannot be made.
+      **Note:** `rules.js` (and its test) now live at `public/rules.js` — Cloudflare's static
+      assets are only served from `public/`, so the browser can't fetch a file at the repo root.
+      It's still the one hand-written rules module, importable by server code too via a relative
+      path. Verified in a real browser (Playwright): legal moves, turn switching, castling
+      (O-O), and checkmate detection (Fool's Mate) all work correctly.
 - [ ] Deploy to Cloudflare Workers
       **Depends on:** working hot-seat mode
       **Files:** `wrangler.jsonc`
