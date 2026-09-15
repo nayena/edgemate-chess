@@ -21,27 +21,29 @@ the concrete, checkable condition that makes the task "finished," not just "star
 
 ## Phase 1 — Rules engine (blocks every later phase)
 
-- [ ] Scaffold the Cloudflare Workers project (`wrangler.jsonc`, `package.json`, empty
+- [x] Scaffold the Cloudflare Workers project (`wrangler.jsonc`, `package.json`, empty
       `public/` folder for static assets)
       **Depends on:** Phase 0
       **Files:** `wrangler.jsonc`, `package.json`
       **DoD:** `npx wrangler dev` runs locally without errors and serves a blank page.
-- [ ] Write `rules.js`: board representation, move generation, and legality checking for all six
+      **Note:** landed as a reactive fix for a deploy error; `public/` also got a real (Dracula-
+      themed) design-preview `index.html`, not a blank page, so it serves that instead.
+- [x] Write `rules.js`: board representation, move generation, and legality checking for all six
       piece types, including check detection
       **Depends on:** scaffold
       **Files:** `rules.js`
       **DoD:** exports functions to generate legal moves from a position and apply a move.
-- [ ] Add castling, en passant, and promotion to `rules.js`
+- [x] Add castling, en passant, and promotion to `rules.js`
       **Depends on:** base move generation
       **Files:** `rules.js`
       **DoD:** all three special-move types are legal exactly when chess rules say they should
       be, and illegal in every other case.
-- [ ] Add checkmate and stalemate detection
+- [x] Add checkmate and stalemate detection
       **Depends on:** legality checking
       **Files:** `rules.js`
       **DoD:** a game correctly reports checkmate or stalemate in known test positions (e.g.
       Fool's Mate, Scholar's Mate, a simple stalemate setup).
-- [ ] Write the perft test
+- [x] Write the perft test
       **Depends on:** all of the above
       **Files:** `rules.test.js` (or similar), `rules.js`
       **DoD:** from the starting position, the test prints depth 1 = 20, depth 2 = 400,
