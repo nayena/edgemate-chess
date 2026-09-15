@@ -87,7 +87,7 @@
   /* ---------- editor window ---------- */
   .editor-window{
     margin-inline:auto;
-    width:min(1180px, calc(100% - 32px));
+    width:min(1360px, calc(100% - 32px));
     background:var(--bg-panel);
     border:1px solid var(--border);
     border-radius:10px;
@@ -375,6 +375,27 @@
   .conn-dot{width:7px; height:7px; border-radius:50%; background:var(--text-faint); display:inline-block; transition:background .2s;}
   .conn-dot.live{background:var(--green); box-shadow:0 0 6px var(--green);}
 
+  .diff-group{
+    display:inline-flex;
+    border:1px solid var(--border);
+    border-radius:5px;
+    overflow:hidden;
+  }
+  .diff-btn{
+    font-family:var(--font-body);
+    font-size:11.5px;
+    background:var(--bg-panel);
+    border:none;
+    border-right:1px solid var(--border);
+    color:var(--text-muted);
+    padding:4px 10px;
+    cursor:pointer;
+    transition:color .15s, background .15s;
+  }
+  .diff-btn:last-child{border-right:none;}
+  .diff-btn:hover{color:var(--text-primary);}
+  .diff-btn[aria-pressed="true"]{color:var(--bg-inset); background:var(--cyan); font-weight:600;}
+
   /* ---------- editor body ---------- */
   .editor-body{
     display:grid;
@@ -405,10 +426,10 @@
 
   .board-frame{
     display:grid;
-    grid-template-columns:26px 1fr;
-    grid-template-rows:1fr 22px;
-    gap:2px;
-    max-width:520px;
+    grid-template-columns:30px 1fr;
+    grid-template-rows:1fr 26px;
+    gap:3px;
+    max-width:min(720px, 100%);
     margin-inline:auto;
     position:relative;
   }
@@ -419,7 +440,7 @@
   }
   .gutter span{
     display:flex; align-items:center; justify-content:center;
-    font-size:11px;
+    font-size:12.5px;
     color:var(--text-faint);
   }
   .file-ruler{
@@ -429,7 +450,7 @@
   }
   .file-ruler span{
     display:flex; align-items:center; justify-content:center;
-    font-size:11px;
+    font-size:12.5px;
     color:var(--text-faint);
   }
   .board{
@@ -492,7 +513,7 @@
   }
 
   .piece{
-    font-size:clamp(22px, 5.4vw, 38px);
+    font-size:clamp(26px, 6.6vw, 52px);
     line-height:1;
     user-select:none;
     transition:transform .12s ease;
@@ -690,8 +711,8 @@
 <body>
 
 <p class="page-eyebrow">
-  <span><strong>EdgeMate</strong> — design preview</span>
-  <span>Dracula theme · rendered as a code editor · rules.js lands in Phase 1</span>
+  <span><strong>EdgeMate</strong></span>
+  <span>rendered as a code editor · hot-seat runs on rules.js</span>
 </p>
 
 <main class="editor-window" id="editorWindow">
@@ -763,7 +784,7 @@
 
   <div class="editor-body">
     <div class="board-column">
-      <p class="preview-note"><span class="kw">note</span> — this build shows <span class="str">piece movement &amp; the visual language</span>; check, checkmate and castling arrive with rules.js.</p>
+      <p class="preview-note"><span class="kw">note</span> — hot-seat plays <span class="str">full legal chess</span> via rules.js: castling, en passant, promotion, check, checkmate, stalemate. Vs-computer and online still arrive in later phases.</p>
 
       <div class="board-frame" id="boardFrame">
         <div class="gutter" id="gutter" aria-hidden="true"></div>
@@ -772,7 +793,7 @@
         <div class="endgame-banner" id="endgameBanner">
           <div class="card">
             <div class="check" id="endgameText">White wins</div>
-            <div class="sub">preview only — real checkmate detection ships in Phase 1</div>
+            <div class="sub" id="endgameSub">checkmate</div>
           </div>
         </div>
       </div>
@@ -807,7 +828,8 @@
     <span class="seg" id="modeLabel">Hot-seat</span>
     <span class="right">
       <span class="seg" id="coordLabel">Sq —</span>
-      <span class="seg">Dracula theme</span>
+      <span class="seg">⎇ main</span>
+      <span class="seg">UTF-8</span>
     </span>
   </div>
 </main>
@@ -822,13 +844,24 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+import * as Rules from './rules.js';
+
 (function(){
   "use strict";
 
   var GLYPH = { P:'♟', N:'♞', B:'♝', R:'♜', Q:'♛', K:'♚' };
   var VALUE = { P:1, N:3, B:3, R:5, Q:9, K:0 };
   var FILES = ['a','b','c','d','e','f','g','h'];
+
+  // rules.js squares are a flat 0-63 index, rank 0 = rank 1 (White's back rank).
+  // The board grid here is row/col with row 0 = rank 8 (drawn at the top), so:
+  function toSquare(r, c){ return (7 - r) * 8 + c; }
+  function toRC(square){ return { r: 7 - Math.floor(square / 8), c: square % 8 }; }
+  function pieceFromLetter(letter){
+    if (letter == null) return null;
+    return { type: letter.toUpperCase(), color: letter === letter.toUpperCase() ? 'w' : 'b' };
+  }
 
   var AVATAR_SET = [
     {glyph:'⎇', color:'pink'},
@@ -851,26 +884,17 @@
         players: state.players,
         soundOn: state.soundOn,
         glowOn: state.glowOn,
-        grainOn: state.grainOn
+        grainOn: state.grainOn,
+        difficulty: state.difficulty
       }));
     } catch(e){ /* private mode or blocked storage — ignore */ }
   }
   var prefs = loadPrefs();
 
-  function initialBoard(){
-    var b = Array.from({length:8}, function(){ return Array(8).fill(null); });
-    var back = ['R','N','B','Q','K','B','N','R'];
-    for(var c=0;c<8;c++){
-      b[0][c] = {type:back[c], color:'b'};
-      b[1][c] = {type:'P', color:'b'};
-      b[6][c] = {type:'P', color:'w'};
-      b[7][c] = {type:back[c], color:'w'};
-    }
-    return b;
-  }
+  var DIFFICULTIES = ['easy', 'medium', 'hard'];
 
   var state = {
-    board: initialBoard(),
+    game: Rules.createInitialState(),
     turn: 'w',
     mode: 'hotseat',
     selected: null,
@@ -880,6 +904,7 @@
     moveCount: 0,
     gameOver: false,
     winner: null,
+    inCheck: false,
     pendingPromotion: null,
     players: (prefs && prefs.players) || {
       w: {name:'Player 1', glyph:'§', color:'purple'},
@@ -887,71 +912,31 @@
     },
     soundOn: prefs ? prefs.soundOn !== false : true,
     glowOn: prefs ? prefs.glowOn !== false : true,
-    grainOn: prefs ? prefs.grainOn !== false : true
+    grainOn: prefs ? prefs.grainOn !== false : true,
+    difficulty: (prefs && DIFFICULTIES.indexOf(prefs.difficulty) !== -1) ? prefs.difficulty : 'medium'
   };
 
   document.body.classList.toggle('no-glow', !state.glowOn);
   document.body.classList.toggle('no-grain', !state.grainOn);
 
   function sqName(r,c){ return FILES[c] + (8-r); }
-  function inBounds(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
 
-  function slide(board, r, c, color, dirs){
-    var moves = [];
-    dirs.forEach(function(d){
-      var rr = r+d[0], cc = c+d[1];
-      while(inBounds(rr,cc)){
-        var occ = board[rr][cc];
-        if(!occ){ moves.push({r:rr,c:cc,capture:false}); }
-        else{
-          if(occ.color !== color) moves.push({r:rr,c:cc,capture:true});
-          break;
-        }
-        rr += d[0]; cc += d[1];
-      }
-    });
-    return moves;
+  // All rules-of-chess decisions (what's legal, check/checkmate/stalemate) come from
+  // rules.js. This UI layer only ever shows/plays moves that module hands back.
+  function legalMovesFrom(r, c){
+    var from = toSquare(r, c);
+    return Rules.generateLegalMoves(state.game).filter(function(m){ return m.from === from; });
   }
 
-  function legalMovesFor(board, r, c){
-    var piece = board[r][c];
-    if(!piece) return [];
-    var color = piece.color, moves = [];
-
-    if(piece.type === 'P'){
-      var dir = color === 'w' ? -1 : 1;
-      var startRow = color === 'w' ? 6 : 1;
-      if(inBounds(r+dir,c) && !board[r+dir][c]){
-        moves.push({r:r+dir,c:c,capture:false});
-        if(r === startRow && !board[r+2*dir][c]) moves.push({r:r+2*dir,c:c,capture:false});
-      }
-      [c-1,c+1].forEach(function(cc){
-        if(inBounds(r+dir,cc) && board[r+dir][cc] && board[r+dir][cc].color !== color){
-          moves.push({r:r+dir,c:cc,capture:true});
-        }
-      });
-    } else if(piece.type === 'N'){
-      [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(function(d){
-        var rr=r+d[0], cc=c+d[1];
-        if(inBounds(rr,cc) && (!board[rr][cc] || board[rr][cc].color!==color)){
-          moves.push({r:rr,c:cc,capture:!!board[rr][cc]});
-        }
-      });
-    } else if(piece.type === 'B'){
-      moves = slide(board,r,c,color,[[-1,-1],[-1,1],[1,-1],[1,1]]);
-    } else if(piece.type === 'R'){
-      moves = slide(board,r,c,color,[[-1,0],[1,0],[0,-1],[0,1]]);
-    } else if(piece.type === 'Q'){
-      moves = slide(board,r,c,color,[[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]);
-    } else if(piece.type === 'K'){
-      [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(function(d){
-        var rr=r+d[0], cc=c+d[1];
-        if(inBounds(rr,cc) && (!board[rr][cc] || board[rr][cc].color!==color)){
-          moves.push({r:rr,c:cc,capture:!!board[rr][cc]});
-        }
-      });
-    }
-    return moves;
+  function destOptionsFor(r, c){
+    var moves = legalMovesFrom(r, c);
+    var byDest = {};
+    moves.forEach(function(m){
+      var rc = toRC(m.to);
+      var key = rc.r + ',' + rc.c;
+      if(!byDest[key]) byDest[key] = { r: rc.r, c: rc.c, capture: m.captured != null || m.flag === 'ep' };
+    });
+    return Object.keys(byDest).map(function(k){ return byDest[k]; });
   }
 
   var boardEl = document.getElementById('board');
@@ -991,7 +976,7 @@
         var el = squareEls[r][c];
         el.innerHTML = '';
         el.classList.remove('selected','move-quiet','move-capture','last-from','last-to');
-        var piece = state.board[r][c];
+        var piece = pieceFromLetter(state.game.board[toSquare(r,c)]);
         if(piece){
           var span = pieceSpan(piece);
           var lockedForOpponentPreview = state.mode==='computer' && piece.color==='b';
@@ -1012,9 +997,14 @@
       squareEls[m.r][m.c].classList.add(m.capture ? 'move-capture':'move-quiet');
     });
 
-    document.getElementById('turnLabel').textContent = state.gameOver
-      ? (state.players[state.winner].name + ' wins')
-      : (state.players[state.turn].name + ' to move');
+    var turnText;
+    if(state.gameOver){
+      turnText = state.winner ? (state.players[state.winner].name + ' wins') : 'Draw';
+    } else {
+      turnText = state.players[state.turn].name + ' to move';
+      if(state.inCheck) turnText += ' — check';
+    }
+    document.getElementById('turnLabel').textContent = turnText;
     document.getElementById('turnDot').className = 'turn-dot' + (state.turn==='b' ? ' black':'');
 
     renderPlayers();
@@ -1030,7 +1020,13 @@
 
     document.getElementById('boardFrame').classList.toggle('gameover', state.gameOver);
     if(state.gameOver){
-      document.getElementById('endgameText').textContent = (state.winner==='w'?'White wins':'Black wins');
+      if(state.winner){
+        document.getElementById('endgameText').textContent = state.players[state.winner].name + ' wins';
+        document.getElementById('endgameSub').textContent = 'checkmate';
+      } else {
+        document.getElementById('endgameText').textContent = 'Draw';
+        document.getElementById('endgameSub').textContent = 'stalemate — no legal moves, but not in check';
+      }
     }
   }
 
@@ -1094,19 +1090,19 @@
     if(state.selected){
       var dest = state.legal.find(function(m){ return m.r===r && m.c===c; });
       if(dest){
-        makeMove(state.selected.r, state.selected.c, r, c);
+        tryMove(state.selected.r, state.selected.c, r, c);
         return;
       }
     }
 
-    var piece = state.board[r][c];
+    var piece = pieceFromLetter(state.game.board[toSquare(r,c)]);
     if(piece && piece.color === state.turn){
       if(state.mode === 'computer' && piece.color === 'b'){
         flashComment('// black waits on the Phase 3 engine — try White for now');
         return;
       }
       state.selected = {r:r,c:c};
-      state.legal = legalMovesFor(state.board, r, c);
+      state.legal = destOptionsFor(r, c);
       document.getElementById('coordLabel').textContent = 'Sq ' + sqName(r,c);
     } else {
       state.selected = null;
@@ -1115,57 +1111,71 @@
     render();
   }
 
-  function makeMove(fr,fc,tr,tc){
-    var board = state.board;
-    var mover = board[fr][fc];
-    var captured = board[tr][tc];
-    var wasCapture = !!captured;
+  // A click on (fr,fc)->(tr,tc) may match several legal moves — one per promotion
+  // choice — when a pawn reaches the back rank. If so, ask which piece before applying.
+  function tryMove(fr,fc,tr,tc){
+    var from = toSquare(fr,fc), to = toSquare(tr,tc);
+    var candidates = Rules.generateLegalMoves(state.game).filter(function(m){
+      return m.from === from && m.to === to;
+    });
+    if(candidates.length === 0) return;
 
-    board[tr][tc] = mover;
-    board[fr][fc] = null;
-    lastMove = {from:{r:fr,c:fc}, to:{r:tr,c:tc}};
-
-    if(captured){
-      if(mover.color==='w') state.capturedByWhite.push(captured);
-      else state.capturedByBlack.push(captured);
-      if(captured.type === 'K'){
-        state.gameOver = true;
-        state.winner = mover.color;
-      }
-    }
-    playMoveSound(wasCapture);
-
-    var needsPromotion = mover.type==='P' && (tr===0 || tr===7);
     state.selected = null;
     state.legal = [];
 
-    if(needsPromotion && !state.gameOver){
-      state.pendingPromotion = {r:tr,c:tc, from: fr+','+fc, color: mover.color, wasCapture: wasCapture};
+    if(candidates.length > 1){
+      state.pendingPromotion = { candidates: candidates, r: tr, c: tc };
       openPalette(sqName(tr,tc));
       render();
       return;
     }
-
-    if(state.gameOver) playGameOverSound();
-
-    finishTurn(fr,fc,tr,tc,mover,wasCapture, mover.type);
+    applyChosenMove(candidates[0]);
   }
 
-  function finishTurn(fr,fc,tr,tc,mover,wasCapture,typeForLog){
-    logMove(fr,fc,tr,tc,typeForLog,wasCapture);
-    if(!state.gameOver) state.turn = state.turn === 'w' ? 'b' : 'w';
+  function applyChosenMove(move){
+    var wasCapture = move.captured != null;
+    var moverColor = state.game.turn;
+
+    if(wasCapture){
+      var capturedPiece = pieceFromLetter(move.captured);
+      if(moverColor==='w') state.capturedByWhite.push(capturedPiece);
+      else state.capturedByBlack.push(capturedPiece);
+    }
+
+    state.game = Rules.applyMove(state.game, move);
+    state.turn = state.game.turn;
+    lastMove = { from: toRC(move.from), to: toRC(move.to) };
+
+    var status = Rules.getGameStatus(state.game);
+    state.inCheck = status === 'check';
+    state.gameOver = status === 'checkmate' || status === 'stalemate';
+    state.winner = status === 'checkmate' ? moverColor : null;
+
+    playMoveSound(wasCapture);
+    if(state.gameOver) playGameOverSound();
+
+    logMove(move, wasCapture, moverColor);
     render();
   }
 
-  function logMove(fr,fc,tr,tc,type,wasCapture){
+  function logMove(move, wasCapture, moverColor){
     state.moveCount++;
     if(logEl.querySelector('.empty')) logEl.innerHTML = '';
     var line = document.createElement('div');
     line.className = 'log-line';
-    var mover = state.players[state.turn];
+    var mover = state.players[moverColor];
+    var type = move.piece.toUpperCase();
     var n = document.createElement('span'); n.className='n'; n.textContent = state.moveCount + '.';
     var mv = document.createElement('span'); mv.className = 'mv' + (wasCapture?' capture':'');
-    mv.textContent = mover.glyph + ' ' + (type!=='P' ? type : '') + sqName(fr,fc) + (wasCapture ? ' ×capture× ' : ' → ') + sqName(tr,tc);
+    var promoSuffix = move.promotion ? ('=' + move.promotion.toUpperCase()) : '';
+    var moveText;
+    if(move.flag === 'castleK') moveText = 'O-O';
+    else if(move.flag === 'castleQ') moveText = 'O-O-O';
+    else {
+      moveText = (type!=='P' ? type : '') + Rules.squareName(move.from) +
+        (wasCapture ? ' ×capture× ' : ' → ') + Rules.squareName(move.to) + promoSuffix;
+    }
+    mv.textContent = mover.glyph + ' ' + moveText;
     line.appendChild(n); line.appendChild(mv);
     logEl.appendChild(line);
     logEl.scrollTop = logEl.scrollHeight;
@@ -1174,11 +1184,12 @@
   var flashTimer = null;
   function flashComment(text){
     var strip = document.getElementById('modeStrip');
-    var original = strip.dataset.original || strip.innerHTML;
-    strip.dataset.original = original;
     strip.innerHTML = '<span class="comment" style="color:var(--red)">'+text+'</span>';
     clearTimeout(flashTimer);
-    flashTimer = setTimeout(function(){ strip.innerHTML = original; }, 1800);
+    flashTimer = setTimeout(function(){
+      strip.innerHTML = modeStripContent[state.mode];
+      wireModeStripControls();
+    }, 1800);
   }
 
   /* ---- promotion palette ---- */
@@ -1193,14 +1204,15 @@
     btn.addEventListener('click', function(){
       var choice = btn.dataset.piece;
       var pend = state.pendingPromotion;
-      if(pend){
-        state.board[pend.r][pend.c] = {type:choice, color:pend.color};
-        var from = pend.from.split(',').map(Number);
-        playPromotionSound();
-        finishTurn(from[0], from[1], pend.r, pend.c, {type:choice}, pend.wasCapture, choice);
-      }
       state.pendingPromotion = null;
       closePalette();
+      if(pend){
+        var move = pend.candidates.find(function(m){ return m.promotion.toUpperCase() === choice; });
+        if(move){
+          applyChosenMove(move);
+          playPromotionSound();
+        }
+      }
     });
   });
   paletteBackdrop.addEventListener('click', function(e){
@@ -1210,9 +1222,42 @@
   /* ---- tabs / mode switching ---- */
   var modeStripContent = {
     hotseat: '<span class="comment">// two players, one screen — take turns tapping your pieces</span>',
-    computer: '<span class="comment">// you are White · the Phase 3 engine plays Black (not wired yet)</span>',
+    computer: '<span class="comment">// you are White ·</span>' +
+      '<span class="diff-group" role="group" aria-label="Computer difficulty">' +
+        DIFFICULTIES.map(function(d){ return '<button type="button" class="diff-btn" data-diff="'+d+'">'+d+'</button>'; }).join('') +
+      '</span>' +
+      '<span class="comment">· engine arrives in Phase 3 — change this anytime, including mid-game</span>',
     online: '<span class="comment">$ join --room</span><input type="text" placeholder="ABCD" maxlength="4" id="roomInput" aria-label="Room code"><button class="small" id="joinBtn" type="button">connect</button><span class="conn-dot" id="connDot" aria-hidden="true"></span><span class="comment" id="connText">offline</span>'
   };
+
+  function syncDifficultyButtons(){
+    Array.prototype.forEach.call(document.querySelectorAll('.diff-btn'), function(btn){
+      btn.setAttribute('aria-pressed', btn.dataset.diff === state.difficulty ? 'true' : 'false');
+    });
+  }
+
+  // Re-attaches the listeners the current mode strip's controls need. Called both after a
+  // tab switch and after flashComment() replaces the strip's markup and restores it.
+  function wireModeStripControls(){
+    if(state.mode === 'online'){
+      var joinBtn = document.getElementById('joinBtn');
+      if(joinBtn) joinBtn.addEventListener('click', function(){
+        var val = document.getElementById('roomInput').value.trim();
+        document.getElementById('connDot').classList.add('live');
+        document.getElementById('connText').textContent = val ? ('room ' + val.toUpperCase() + ' (preview)') : 'connected (preview)';
+      });
+    }
+    if(state.mode === 'computer'){
+      syncDifficultyButtons();
+      Array.prototype.forEach.call(document.querySelectorAll('.diff-btn'), function(btn){
+        btn.addEventListener('click', function(){
+          state.difficulty = btn.dataset.diff;
+          syncDifficultyButtons();
+          savePrefs();
+        });
+      });
+    }
+  }
 
   Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(tab){
     tab.addEventListener('click', function(){
@@ -1223,21 +1268,13 @@
       document.getElementById('modeStrip').innerHTML = modeStripContent[mode];
       document.getElementById('winTitleMode').textContent = mode + '.chess';
       document.getElementById('modeLabel').textContent = mode==='hotseat' ? 'Hot-seat' : mode==='computer' ? 'Vs Computer' : 'Online';
-
-      if(mode === 'online'){
-        var joinBtn = document.getElementById('joinBtn');
-        joinBtn.addEventListener('click', function(){
-          var val = document.getElementById('roomInput').value.trim();
-          document.getElementById('connDot').classList.add('live');
-          document.getElementById('connText').textContent = val ? ('room ' + val.toUpperCase() + ' (preview)') : 'connected (preview)';
-        });
-      }
+      wireModeStripControls();
       render();
     });
   });
 
   document.getElementById('newGameBtn').addEventListener('click', function(){
-    state.board = initialBoard();
+    state.game = Rules.createInitialState();
     state.turn = 'w';
     state.selected = null;
     state.legal = [];
@@ -1246,6 +1283,7 @@
     state.moveCount = 0;
     state.gameOver = false;
     state.winner = null;
+    state.inCheck = false;
     lastMove = null;
     logEl.innerHTML = '<span class="empty">$ game ready — make a move to begin log</span>';
     render();
