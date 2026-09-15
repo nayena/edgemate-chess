@@ -1,14 +1,14 @@
-# Dracula Chess
+# EdgeMate
 
 A browser chess game with three ways to play: pass-and-play on one screen, against a simple
 in-browser computer opponent, or online against a friend using a shared room code. Built on
 Cloudflare Workers with plain HTML, CSS and JavaScript — no frameworks, no chess libraries.
 
-By Heidy Naranjo.
+By Nayeli.
 
 ## What this is
 
-Dracula Chess is a from-scratch implementation of chess rules (see `rules.js`) plus three ways
+EdgeMate is a from-scratch implementation of chess rules (see `rules.js`) plus three ways
 to play them:
 
 1. **Hot-seat** — two people share one screen and take turns.

@@ -1,4 +1,4 @@
-# Product Spec — Dracula Chess
+# Product Spec — EdgeMate
 
 This document is the single source of truth for what we're building. If code and this document
 disagree, this document wins until we deliberately update it.
@@ -85,19 +85,23 @@ to recover after a crash.
 
 ## The look
 
-Dark, late-night, "hacker desk lamp" mood, based on the well-known **Dracula** color theme:
-a near-black background (around `#282a36`), a muted purple/lavender checkerboard instead of
-plain black-and-white, and Dracula's signature accent colors — pink (`#ff79c6`), green
-(`#50fa7b`), cyan (`#8be9fd`) — used for highlights and UI chrome. Typeface: a clean monospace
-font (e.g. "JetBrains Mono" with a system monospace fallback), to keep a developer-tool feel.
-A **selected piece** gets a glowing pink ring around its square. Every square it can **legally
-move to** shows a small green dot in the middle of the square, or a green ring around the edge
-of the square if moving there would capture the piece standing on it.
+No Figma file is attached to this project, so — per the brief's own fallback instruction — this
+is our own design, noted here as such rather than matched to an external file. Dark, late-night,
+"hacker desk lamp" mood, based on the well-known **Dracula** color theme: a near-black background
+(around `#282a36`), a muted purple/lavender checkerboard instead of plain black-and-white, and
+Dracula's signature accent colors — pink (`#ff79c6`), green (`#50fa7b`), cyan (`#8be9fd`) — used
+for highlights and UI chrome. Typeface: a clean monospace font (e.g. "JetBrains Mono" with a
+system monospace fallback), to keep a developer-tool feel. A **selected piece** gets a glowing
+pink ring around its square. Every square it can **legally move to** shows a small green dot in
+the middle of the square, or a green ring around the edge of the square if moving there would
+capture the piece standing on it.
 
-*(Decision recorded 2026-09-15: no Figma file is connected to this project/session, so the look
-is defined here in writing rather than matched pixel-for-pixel to a design file. If a Figma file
-becomes available later, this section should be updated to match it and treated as the source
-of truth going forward.)*
+*(Decision recorded 2026-09-15: the game was originally scoped and named "Dracula Chess"; it was
+renamed to "EdgeMate" per an uploaded spec file, but that same file's own fallback rule — design
+your own look if no Figma is attached, and note that you did so — is what keeps this Dracula
+visual theme in place rather than switching to that file's "night mode chess club" look. If a
+Figma file becomes available later, this section should be updated to match it and treated as
+the source of truth going forward.)*
 
 ## Not in scope
 
@@ -125,15 +129,19 @@ move export (e.g. PGN), and React. The whole project is plain HTML, CSS, and Jav
 ## Optional extra (built last)
 
 **Captured pieces + material count.** Once a piece is captured, it's shown in a small tray on
-the side of the board for the player who captured it, and a running material-point total (using
-standard chess piece values) shows which side is ahead and by how much. This is purely a display
-feature — it doesn't change any rule.
+the side of the board for the player who captured it, and a running material-point total shows
+which side is ahead and by how much, using standard chess piece values: pawn = 1, knight = 3,
+bishop = 3, rook = 5, queen = 9 (the king has no point value — it can't be captured). Chosen over
+the alternatives (undo, a resign button, move sounds) because it's pure information display on
+top of a correct rules engine, touches no game rules, and is useful in every mode — lower risk
+than the others.
 
 ## Decisions log
 
 Recorded here so later sessions don't have to guess why something is the way it is:
 
-- **2026-09-15** — Game name chosen: "Dracula Chess" (chess + Dracula, per user request).
+- **2026-09-15** — Game name chosen (session start): "Dracula Chess" (chess + Dracula, per user
+  request).
 - **2026-09-15** — GitHub repo: reused the user's existing empty repo at
   `https://github.com/nayena/ChessGame.git` rather than creating a new one.
 - **2026-09-15** — Vs Computer color: user plays White (default/simpler case; swappable later).
@@ -141,3 +149,9 @@ Recorded here so later sessions don't have to guess why something is the way it 
   sound-on-move, and resign-online).
 - **2026-09-15** — Look/design source: no Figma file was connected to this session, so the look
   is written out above instead of matched to a design file.
+- **2026-09-15** — User uploaded a fuller spec file (`EdgeMate_AgentSpec.md`) naming the game
+  "EdgeMate", the repo `edgemate-chess`, and crediting the README to "Nayeli". Per user
+  instruction, all of that was adopted **except** the file's own "night mode chess club" look —
+  the Dracula theme was kept instead. Game renamed "Dracula Chess" → "EdgeMate"; GitHub repo
+  renamed `ChessGame` → `edgemate-chess` (same repo, same commit history, same open PR); README
+  author changed to "Nayeli".

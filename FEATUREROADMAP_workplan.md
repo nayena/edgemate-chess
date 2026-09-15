@@ -1,4 +1,4 @@
-# Feature Roadmap / Workplan — Dracula Chess
+# Feature Roadmap / Workplan — EdgeMate
 
 Order of work, per the product spec: rules engine first (nothing else can be trusted until it's
 correct), then **hot-seat live on the internet**, then **vs computer**, then **online rooms**,
